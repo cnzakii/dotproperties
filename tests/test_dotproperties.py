@@ -35,11 +35,20 @@ def test_loads_java_examples_and_duplicate_keys() -> None:
 
 
 def test_loads_key_boundaries_and_ascii_whitespace() -> None:
-    document = "\\:\\==punctuation\nkey\\ with\\ spaces value\n=empty-key\n\u00a0=value"
+    document = (
+        "\\:\\==punctuation\n"
+        "key\\ with\\ spaces value\n"
+        "even\\\\=separator\n"
+        "odd\\=key=value\n"
+        "=empty-key\n"
+        "\u00a0=value"
+    )
 
     assert dotproperties.loads(document) == {
         ":=": "punctuation",
         "key with spaces": "value",
+        "even\\": "separator",
+        "odd=key": "value",
         "": "empty-key",
         "\u00a0": "value",
     }
@@ -51,6 +60,7 @@ def test_loads_escapes_and_unicode() -> None:
         "snowman=\\u2603\n"
         "goat=\\uD83D\\uDC10\n"
         "raw-pair=\ud83d\udc10\n"
+        "mixed-pair=\\uD83D\udc10\n"
         "isolated=\ud800\n"
     )
 
@@ -59,6 +69,7 @@ def test_loads_escapes_and_unicode() -> None:
         "snowman": "☃",
         "goat": "🐐",
         "raw-pair": "🐐",
+        "mixed-pair": "🐐",
         "isolated": "\ud800",
     }
 
@@ -81,6 +92,13 @@ def test_loads_rejects_malformed_unicode_escape(document: str) -> None:
 def test_loads_bytes_are_iso_8859_1_and_text_is_unicode() -> None:
     assert dotproperties.loads(b"word=ol\xe1") == {"word": "olá"}
     assert dotproperties.loads("word=你好") == {"word": "你好"}
+
+
+def test_loads_only_cr_and_lf_as_natural_line_terminators() -> None:
+    assert dotproperties.loads("key=left\u0085middle\u2028right\rnext=value") == {
+        "key": "left\u0085middle\u2028right",
+        "next": "value",
+    }
 
 
 def test_continuation_uses_odd_backslash_runs() -> None:
@@ -119,9 +137,16 @@ class OneByteReader(BytesIO):
 
 
 def test_load_reads_bounded_chunks_across_every_boundary() -> None:
-    stream = OneByteReader(b"a=one\\\r\n two\nunicode=\\u2603\n")
+    stream = OneByteReader(
+        b"a=one\\\r\n two\nstandalone=cr\rnext=value\nunicode=\\u2603\n"
+    )
 
-    assert dotproperties.load(stream) == {"a": "onetwo", "unicode": "☃"}
+    assert dotproperties.load(stream) == {
+        "a": "onetwo",
+        "standalone": "cr",
+        "next": "value",
+        "unicode": "☃",
+    }
     assert stream.read_sizes
     assert all(size is not None and size > 0 for size in stream.read_sizes)
     assert not stream.closed

@@ -4,6 +4,11 @@ User-visible changes to `dotproperties` are recorded here.
 
 ## [Unreleased]
 
+### Changed
+
+- Improved parsing and serialization performance without changing format
+  behavior, including lower peak memory use for long natural lines.
+
 ## [0.1.0] - 2026-07-31
 
 ### Added

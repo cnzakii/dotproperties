@@ -24,7 +24,7 @@ decisions, or project recommendations.
 - Protocol: [Java Properties line-oriented format](protocol/properties.md)
 - Engineering:
   [Python language and documentation conventions](engineering/python.md),
-  [reference parser architectures](engineering/parsers.md), and
+  [text parser architecture and algorithms](engineering/parsers.md), and
   [packaging and development tooling](engineering/packaging-tooling.md)
 
 ## Freshness
