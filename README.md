@@ -125,7 +125,7 @@ text = dotproperties.dumps(
 
 Multiline comments follow Java's `#` and `!` line-marker rules. CR, LF, and
 CRLF are normalized to LF, and `ensure_ascii` applies to comment text as well
-as keys and values. Serialization never adds a timestamp automatically.
+as keys and values.
 
 `load()` makes bounded-size read requests. `load()` and `dump()` leave
 caller-owned streams open; `dump()` also leaves flushing to the caller and
