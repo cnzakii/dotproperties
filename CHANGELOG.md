@@ -4,6 +4,11 @@ User-visible changes to `dotproperties` are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- Added `sort_keys` and `comments` serialization options for deterministic
+  Java-order output and caller-controlled header comments.
+
 ### Changed
 
 - Improved parsing and serialization performance without changing format

@@ -2,7 +2,7 @@
 title: Java Properties line-oriented format
 description: Normative grammar, encoding, escaping, storage, and JDK-version boundaries for java.util.Properties.
 topics: [java-properties, grammar, encoding, escaping, jdk8, jdk25]
-checked_at: 2026-07-30
+checked_at: 2026-07-31
 ---
 
 # Java Properties Line-Oriented Format
@@ -79,14 +79,28 @@ API: since Java 9 it attempts UTF-8 and may fall back to ISO-8859-1, whereas its
 
 Both Java 8 and Java 25 store `key=value`, escape all spaces in keys and the
 first leading space in a value, escape `#`, `!`, `=`, and `:`, flush the
-destination, and leave it open. Java's storage methods also write optional
-comments and a date comment.
+destination, and leave it open.
+
+When the Java `store` methods receive non-null comments, they first write `#`,
+the comment text, and a line separator. CR, LF, and CRLF inside the text become
+line separators. A continued comment line receives a leading `#` unless its
+next character is already `#` or `!`. Java then writes a separate date comment.
+The `Writer` overload can retain Unicode comments, while the `OutputStream`
+overload writes comments through ISO-8859-1 and escapes characters outside
+Latin-1.
 
 Java 8 does not specify entry order. Java 25 requires the natural ordering of
 keys for the normal `Properties.entrySet()` and documents the
 `java.properties.date` system property for reproducible date comments. These
 are storage-policy differences; the core line grammar and byte encoding remain
 the same in the two API specifications.
+
+## Project Serialization Choices
+
+`dotproperties` keeps Java's optional header-comment structure but does not add
+the storage method's automatic date comment. It uses LF for deterministic text
+output, applies `ensure_ascii` to the complete document, preserves mapping order
+by default, and exposes Java's UTF-16 key order through `sort_keys=True`.
 
 OpenJDK 25 reads input through an 8192-byte or 8192-character buffer and grows
 the current logical-line buffer as needed. Neither the Java API nor that

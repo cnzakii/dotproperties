@@ -192,6 +192,47 @@ def test_dump_preserves_mapping_order_and_is_java_compatible() -> None:
     )
 
 
+def test_sort_keys_uses_java_utf_16_order() -> None:
+    mapping = {
+        "\ue000": "private-use",
+        "\U00010000": "supplementary",
+        "\ud800": "isolated-surrogate",
+        "z": "last-ascii",
+        "a": "first-ascii",
+    }
+
+    assert dotproperties.dumps(mapping, sort_keys=True) == (
+        "a=first-ascii\n"
+        "z=last-ascii\n"
+        "\\uD800=isolated-surrogate\n"
+        "\\uD800\\uDC00=supplementary\n"
+        "\\uE000=private-use\n"
+    )
+
+
+def test_comments_follow_java_line_and_unicode_rules() -> None:
+    comments = "Generated\n# preserved\r\n! preserved\r你好🐐\n"
+    mapping = {"key": "value"}
+
+    ascii_document = dotproperties.dumps(mapping, comments=comments)
+    assert ascii_document == (
+        "#Generated\n"
+        "# preserved\n"
+        "! preserved\n"
+        "#\\u4F60\\u597D\\uD83D\\uDC10\n"
+        "#\n"
+        "key=value\n"
+    )
+    assert dotproperties.loads(ascii_document) == mapping
+    assert dotproperties.dumps({}, comments="# first") == "## first\n"
+
+    assert dotproperties.dumps(
+        mapping,
+        ensure_ascii=False,
+        comments=comments,
+    ) == ("#Generated\n# preserved\n! preserved\n#你好🐐\n#\nkey=value\n")
+
+
 def test_ensure_ascii_false_keeps_unicode_readable() -> None:
     assert dotproperties.dumps({"snow": "☃", "goat": "🐐"}, ensure_ascii=False) == (
         "snow=☃\ngoat=🐐\n"
@@ -222,8 +263,18 @@ def test_dump_validates_before_writing_and_leaves_stream_open() -> None:
     assert stream.getvalue() == ""
     assert not stream.closed
 
-    dotproperties.dump({"key": "value"}, stream)
-    assert stream.getvalue() == "key=value\n"
+    with pytest.raises(TypeError, match="comments"):
+        dotproperties.dump({"valid": "value"}, stream, comments=cast(str, 1))
+
+    assert stream.getvalue() == ""
+
+    dotproperties.dump(
+        {"second": "2", "first": "1"},
+        stream,
+        sort_keys=True,
+        comments="Header",
+    )
+    assert stream.getvalue() == "#Header\nfirst=1\nsecond=2\n"
     assert stream.flush_calls == 0
     assert not stream.closed
 
