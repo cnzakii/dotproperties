@@ -178,10 +178,7 @@ def _unescape(value: str) -> str:
             output.append(char)
             continue
 
-        # Line assembly removes a trailing unmatched backslash.
-        if index == len(value):
-            break
-
+        # Logical-line assembly and key splitting never leave a trailing backslash.
         escaped = value[index]
         index += 1
         if escaped != "u":
