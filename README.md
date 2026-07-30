@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/cnzakii/dotproperties/actions/workflows/ci.yml"><img src="https://github.com/cnzakii/dotproperties/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/github/cnzakii/dotproperties"><img src="https://codecov.io/github/cnzakii/dotproperties/graph/badge.svg" alt="Codecov"></a>
   <a href="https://pypi.org/project/dotproperties/"><img src="https://img.shields.io/pypi/v/dotproperties.svg" alt="PyPI"></a>
   <a href="https://github.com/cnzakii/dotproperties/blob/main/pyproject.toml"><img src="https://img.shields.io/badge/Python-3.10%20to%203.14-3776AB?logo=python&amp;logoColor=white" alt="Python 3.10–3.14"></a>
   <a href="https://github.com/cnzakii/dotproperties/blob/main/pyproject.toml"><img src="https://img.shields.io/badge/free--threaded-3.14t-3776AB?logo=python&amp;logoColor=white" alt="Free-threaded CPython 3.14t"></a>
