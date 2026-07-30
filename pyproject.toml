@@ -36,9 +36,10 @@ Issues = "https://github.com/cnzakii/dotproperties/issues"
 Source = "https://github.com/cnzakii/dotproperties"
 
 [dependency-groups]
-# Compatibility jobs need only pytest; local development includes that group.
+# Compatibility and coverage jobs share this small test toolchain.
 test = [
     "pytest>=9,<10",
+    "pytest-cov>=7,<8",
 ]
 dev = [
     { include-group = "test" },
