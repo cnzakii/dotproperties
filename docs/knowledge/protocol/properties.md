@@ -95,13 +95,6 @@ keys for the normal `Properties.entrySet()` and documents the
 are storage-policy differences; the core line grammar and byte encoding remain
 the same in the two API specifications.
 
-## Project Serialization Choices
-
-`dotproperties` keeps Java's optional header-comment structure but does not add
-the storage method's automatic date comment. It uses LF for deterministic text
-output, applies `ensure_ascii` to the complete document, preserves mapping order
-by default, and exposes Java's UTF-16 key order through `sort_keys=True`.
-
 OpenJDK 25 reads input through an 8192-byte or 8192-character buffer and grows
 the current logical-line buffer as needed. Neither the Java API nor that
 implementation sets a document-size, logical-line, or entry-count limit.
@@ -112,7 +105,7 @@ a continuation and the next natural line begins with `#` or `!`, its
 [`LineReader` implementation][openjdk8-properties] treats that marker as
 property data. The Java 8 API contract still defines that natural line as a
 comment, while the pinned [OpenJDK 11 implementation][openjdk11-properties]
-ignores it. `dotproperties` follows the documented rule.
+ignores it.
 
 Long-term support is a vendor lifecycle designation, not part of the
 line-format specification. The [Adoptium support roadmap][temurin-support]
