@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Iterator
 from typing import BinaryIO, TextIO
 
@@ -9,6 +10,10 @@ _CHUNK_SIZE = 8192
 _HEX_DIGITS = frozenset("0123456789ABCDEFabcdef")
 _WHITESPACE = " \t\f"
 _SHORT_ESCAPES = {"f": "\f", "n": "\n", "r": "\r", "t": "\t"}
+_NATURAL_LINE_END = re.compile(r"\r\n?|\n")
+# A separator is unescaped only after an even-length run of backslashes.
+_KEY_VALUE_SEPARATOR = re.compile(r"(?<!\\)(?:\\\\)*(?P<separator>[=: \t\f])")
+_SURROGATE_PAIR = re.compile(r"[\ud800-\udbff][\udc00-\udfff]")
 
 
 def loads(data: str | bytes, /) -> dict[str, str]:
@@ -82,22 +87,26 @@ def _natural_lines(chunks: Iterable[str]) -> Iterator[str]:
     skip_lf = False
 
     for chunk in chunks:
-        for char in chunk:
-            if skip_lf:
-                skip_lf = False
-                if char == "\n":
-                    continue
+        start = 0
+        if skip_lf:
+            skip_lf = False
+            if chunk.startswith("\n"):
+                start = 1
 
-            if char == "\r":
-                yield "".join(buffer)
-                buffer.clear()
-                # Delay the CRLF decision until the next character or chunk.
-                skip_lf = True
-            elif char == "\n":
+        for match in _NATURAL_LINE_END.finditer(chunk, start):
+            segment = chunk[start : match.start()]
+            if buffer:
+                buffer.append(segment)
                 yield "".join(buffer)
                 buffer.clear()
             else:
-                buffer.append(char)
+                yield segment
+            start = match.end()
+            # A CR at the chunk boundary may be followed by LF in the next chunk.
+            skip_lf = chunk[match.start()] == "\r" and start == len(chunk)
+
+        if start < len(chunk):
+            buffer.append(chunk[start:])
 
     # A non-terminated final natural line is still part of the document.
     if buffer:
@@ -142,15 +151,8 @@ def _logical_lines(lines: Iterable[str]) -> Iterator[str]:
 
 def _split_key_value(line: str) -> tuple[str, str]:
     """Find the first unescaped key terminator and the value start."""
-    escaped = False
-    key_end = len(line)
-
-    for index, char in enumerate(line):
-        if not escaped and (char in "=:" or char in _WHITESPACE):
-            key_end = index
-            break
-        # Toggling handles odd and even runs of backslashes before a separator.
-        escaped = not escaped if char == "\\" else False
+    match = _KEY_VALUE_SEPARATOR.search(line)
+    key_end = match.start("separator") if match else len(line)
 
     value_start = key_end
     while value_start < len(line) and line[value_start] in _WHITESPACE:
@@ -170,6 +172,7 @@ def _unescape(value: str) -> str:
 
     output: list[str] = []
     index = 0
+    escaped_surrogate = False
 
     while index < len(value):
         char = value[index]
@@ -191,14 +194,29 @@ def _unescape(value: str) -> str:
         # Java Properties permits exactly four ASCII hexadecimal digits.
         if len(digits) != 4 or not set(digits) <= _HEX_DIGITS:
             raise ValueError("malformed \\uXXXX encoding")
-        output.append(chr(int(digits, 16)))
+        codepoint = int(digits, 16)
+        escaped_surrogate |= 0xD800 <= codepoint <= 0xDFFF
+        output.append(chr(codepoint))
         index += 4
 
-    return _normalize_surrogates("".join(output))
+    result = "".join(output)
+    if result.isascii():
+        return result
+    if escaped_surrogate:
+        return _SURROGATE_PAIR.sub(_replace_surrogate_pair, result)
+    return _normalize_surrogates(result)
 
 
 def _normalize_surrogates(value: str) -> str:
     """Combine valid UTF-16 pairs while preserving isolated surrogate units."""
-    return value.encode("utf-16-be", errors="surrogatepass").decode(
-        "utf-16-be", errors="surrogatepass"
-    )
+    try:
+        value.encode()
+    except UnicodeEncodeError:
+        return _SURROGATE_PAIR.sub(_replace_surrogate_pair, value)
+    return value
+
+
+def _replace_surrogate_pair(match: re.Match[str]) -> str:
+    """Combine one UTF-16 surrogate pair into its Unicode code point."""
+    high, low = map(ord, match.group())
+    return chr(0x10000 + ((high - 0xD800) << 10) + low - 0xDC00)

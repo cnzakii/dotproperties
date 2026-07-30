@@ -2,8 +2,25 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator, Mapping
 from typing import TextIO
+
+# Spaces are handled separately because keys escape all of them while values
+# escape only a leading one. Unicode output still escapes isolated surrogates.
+_ASCII_ESCAPE = re.compile(r"[^ -~]|[\\=:#!]")
+_UNICODE_ESCAPE = re.compile(r"[\t\n\r\f\\=:#!\ud800-\udfff]")
+_ESCAPES = {
+    "\\": "\\\\",
+    "\t": "\\t",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\f": "\\f",
+    "=": "\\=",
+    ":": "\\:",
+    "#": "\\#",
+    "!": "\\!",
+}
 
 
 def dumps(
@@ -57,13 +74,14 @@ def _serialize_lines(
     ensure_ascii: bool,
 ) -> Iterator[str]:
     """Validate, escape, and yield one complete property per line."""
+    pattern = _ASCII_ESCAPE if ensure_ascii else _UNICODE_ESCAPE
+
     for key, value in _items(mapping):
-        yield (
-            _escape(key, escape_space=True, ensure_ascii=ensure_ascii)
-            + "="
-            + _escape(value, escape_space=False, ensure_ascii=ensure_ascii)
-            + "\n"
-        )
+        escaped_key = pattern.sub(_replace_escape, key).replace(" ", "\\ ")
+        escaped_value = pattern.sub(_replace_escape, value)
+        if escaped_value.startswith(" "):
+            escaped_value = "\\" + escaped_value
+        yield escaped_key + "=" + escaped_value + "\n"
 
 
 def _items(mapping: Mapping[str, str]) -> list[tuple[str, str]]:
@@ -81,47 +99,11 @@ def _items(mapping: Mapping[str, str]) -> list[tuple[str, str]]:
     return items
 
 
-def _escape(value: str, *, escape_space: bool, ensure_ascii: bool) -> str:
-    """Escape one field using the line format emitted by Properties.store().
-
-    Args:
-        value: The string to escape.
-        escape_space: Whether every space is escaped. Keys require this, while
-            values require it only for the first character.
-        ensure_ascii: Whether non-ASCII characters use UTF-16 escapes.
-
-    Returns:
-        The escaped property field.
-    """
-    output: list[str] = []
-
-    for index, char in enumerate(value):
-        if char == " ":
-            output.append("\\ " if escape_space or index == 0 else " ")
-        elif char == "\\":
-            output.append("\\\\")
-        elif char == "\t":
-            output.append("\\t")
-        elif char == "\n":
-            output.append("\\n")
-        elif char == "\r":
-            output.append("\\r")
-        elif char == "\f":
-            output.append("\\f")
-        elif char in "=:#!":
-            output.append("\\" + char)
-        else:
-            codepoint = ord(char)
-            # Isolated surrogates cannot be written safely as ordinary Unicode,
-            # even when readable non-ASCII output was requested.
-            if 0xD800 <= codepoint <= 0xDFFF or (
-                ensure_ascii and (codepoint < 0x20 or codepoint > 0x7E)
-            ):
-                output.append(_unicode_escape(codepoint))
-            else:
-                output.append(char)
-
-    return "".join(output)
+def _replace_escape(match: re.Match[str]) -> str:
+    """Return the Java Properties escape for one matched character."""
+    char = match.group()
+    replacement = _ESCAPES.get(char)
+    return replacement if replacement is not None else _unicode_escape(ord(char))
 
 
 def _unicode_escape(codepoint: int) -> str:
