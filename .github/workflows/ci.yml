@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUFF_OUTPUT_FORMAT: github
+  TY_OUTPUT_FORMAT: github
+
+jobs:
+  python:
+    name: Python ${{ matrix.python-version }}${{ matrix.preview && ' preview' || '' }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        include:
+          # Pre-release interpreters exercise forward compatibility but are
+          # not part of the supported release matrix yet.
+          - os: ubuntu-latest
+            python-version: "3.15"
+            preview: true
+          - os: ubuntu-latest
+            python-version: "3.15t"
+            preview: true
+          # One interpreter on each additional OS catches platform-specific
+          # behavior without multiplying the full version matrix.
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # Compatibility jobs intentionally override .python-version.
+          python-version: ${{ matrix.python-version }}
+      - run: uv run --locked --no-dev --group test pytest -m "not interop"
+
+  quality:
+    name: Lint, types, and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      # Sync once; the following tools reuse the exact environment.
+      - run: uv sync --locked
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync ty check
+      - name: Build sdist and rebuild its wheel
+        run: |
+          uv build --sdist
+          uv build --wheel dist/*.tar.gz
+      - name: Smoke-test the installed wheel
+        run: |
+          uv venv "$RUNNER_TEMP/dotproperties-wheel-test"
+          uv pip install --python "$RUNNER_TEMP/dotproperties-wheel-test/bin/python" dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/dotproperties-wheel-test/bin/python" -c \
+            "import dotproperties; from importlib.metadata import version; assert dotproperties.__version__ == version('dotproperties'); assert dotproperties.loads(dotproperties.dumps({'key': '值'})) == {'key': '值'}"
+
+  java:
+    name: Eclipse Temurin ${{ matrix.java-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Adoptium lists these as the supported Temurin LTS release lines.
+        java-version: ["8", "11", "17", "21", "25"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java-version }}
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - run: uv run --locked --no-dev --group test pytest -m interop

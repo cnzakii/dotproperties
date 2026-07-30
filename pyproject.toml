@@ -1,0 +1,106 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dotproperties"
+dynamic = ["version"]
+description = "A pure-Python reader and writer for Java .properties files"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "zaki" }]
+dependencies = []
+keywords = ["configuration", "java", "java-properties", "parser", "properties", "python"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Topic :: File Formats",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Changelog = "https://github.com/cnzakii/dotproperties/blob/main/CHANGELOG.md"
+Issues = "https://github.com/cnzakii/dotproperties/issues"
+Source = "https://github.com/cnzakii/dotproperties"
+
+[dependency-groups]
+# Compatibility jobs need only pytest; local development includes that group.
+test = [
+    "pytest>=9,<10",
+]
+dev = [
+    { include-group = "test" },
+    "ruff>=0.16,<0.17",
+    "ty>=0.0.63,<0.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dotproperties"]
+
+[tool.hatch.version]
+path = "src/dotproperties/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+# Ship only release-relevant source, tests, and project documentation.
+include = [
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/docs/knowledge",
+    "/LICENSE",
+    "/README.md",
+    "/SECURITY.md",
+    "/pyproject.toml",
+    "/src",
+    "/tests",
+    "/uv.lock",
+]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle: import, statement, and syntax errors.
+    "E4",
+    "E7",
+    "E9",
+    # Pyflakes: undefined names, unused imports, and related errors.
+    "F",
+    # isort: import grouping and ordering.
+    "I",
+    # pyupgrade: syntax supported by the minimum Python version.
+    "UP",
+    # flake8-bugbear: likely bugs and fragile patterns.
+    "B",
+    # flake8-simplify: unnecessarily complex expressions and control flow.
+    "SIM",
+    # Ruff: native correctness and suppression checks.
+    "RUF",
+]
+
+[tool.pytest]
+minversion = "9.0"
+testpaths = ["tests"]
+strict_config = true
+strict_markers = true
+strict_parametrization_ids = true
+strict_xfail = true
+filterwarnings = ["error"]
+markers = [
+    "interop: tests that compare behavior with a local Java runtime",
+]
+
+[tool.ty.src]
+include = ["src", "tests"]
+
+[tool.ty.environment]
+root = ["src"]

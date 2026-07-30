@@ -1,0 +1,46 @@
+# Python bytecode
+__pycache__/
+*.py[codz]
+*$py.class
+
+# Environments and local configuration
+.venv/
+.env
+.env.*
+!.env.example
+.pypirc
+
+# Build and packaging outputs
+build/
+dist/
+*.egg-info/
+*.whl
+
+# Tests and static analysis
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.lcov
+.ruff_cache/
+.ty_cache/
+.uv-cache/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Operating system metadata
+.DS_Store
+._*
+Thumbs.db
+[Dd]esktop.ini
+.directory
