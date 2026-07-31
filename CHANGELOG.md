@@ -4,6 +4,8 @@ User-visible changes to `dotproperties` are recorded here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-31
+
 ### Added
 
 - Added `sort_keys` and `comments` serialization options for deterministic
