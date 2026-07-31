@@ -117,7 +117,7 @@ def _serialize_lines(
         escaped_value = pattern.sub(_replace_escape, value)
         if escaped_value.startswith(" "):
             escaped_value = "\\" + escaped_value
-        yield escaped_key + "=" + escaped_value + "\n"
+        yield f"{escaped_key}={escaped_value}\n"
 
 
 def _items(mapping: Mapping[str, str]) -> list[tuple[str, str]]:
@@ -145,7 +145,7 @@ def _serialize_comments(comments: str, *, pattern: re.Pattern[str]) -> Iterator[
     normalized = comments.replace("\r\n", "\n").replace("\r", "\n")
     for index, line in enumerate(normalized.split("\n")):
         prefix = "#" if index == 0 or not line.startswith(("#", "!")) else ""
-        yield prefix + pattern.sub(_replace_escape, line) + "\n"
+        yield f"{prefix}{pattern.sub(_replace_escape, line)}\n"
 
 
 def _replace_escape(match: re.Match[str]) -> str:

@@ -154,9 +154,6 @@ add Java's timestamp comment. Entries follow the mapping's iteration order
 unless `sort_keys=True`. Java 8 does not specify the order used by
 `Properties.store()`, while Java 25 sorts ordinary `Properties` by key.
 
-XML properties, defaults chains, interpolation, and lossless document editing
-are outside this package's scope.
-
 ## Safety and resource limits
 
 The line format is data-only. Parsing does not construct Python objects from

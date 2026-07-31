@@ -124,8 +124,7 @@ def _logical_lines(lines: Iterable[str]) -> Iterator[str]:
 
         # A continuation-only logical line has no property data. Discard it
         # when the next natural line is blank or a comment.
-        if continued and (not line or line[0] in "#!") and not any(parts):
-            parts.clear()
+        if continued and (not line or line[0] in "#!") and not parts:
             continued = False
             continue
         if not continued and (not line or line[0] in "#!"):
@@ -135,7 +134,9 @@ def _logical_lines(lines: Iterable[str]) -> Iterator[str]:
         # continuation marker; the remaining backslashes are decoded later.
         backslashes = len(line) - len(line.rstrip("\\"))
         if backslashes % 2:
-            parts.append(line[:-1])
+            part = line[:-1]
+            if part:
+                parts.append(part)
             continued = True
         else:
             parts.append(line)
