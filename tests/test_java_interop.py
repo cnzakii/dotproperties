@@ -167,18 +167,51 @@ def test_java_loads_python_ascii_and_unicode_output(
     }
 
     ascii_source = tmp_path / "ascii.properties"
-    ascii_source.write_bytes(dotproperties.dumps(mapping).encode("ascii"))
+    ascii_source.write_bytes(
+        dotproperties.dumps(
+            mapping,
+            sort_keys=True,
+            comments="Generated\nfor Java",
+        ).encode("ascii")
+    )
     assert _load_with_java(
         java_reference, "load-bytes", ascii_source
     ) == _encoded_mapping(mapping)
 
     unicode_source = tmp_path / "unicode.properties"
     unicode_source.write_bytes(
-        dotproperties.dumps(mapping, ensure_ascii=False).encode()
+        dotproperties.dumps(
+            mapping,
+            ensure_ascii=False,
+            sort_keys=True,
+            comments="生成",
+        ).encode()
     )
     assert _load_with_java(
         java_reference, "load-reader", unicode_source
     ) == _encoded_mapping(mapping)
+
+
+@pytest.mark.interop
+def test_python_sort_order_matches_java_string_order(
+    java_reference: tuple[str, Path],
+    tmp_path: Path,
+) -> None:
+    mapping = {
+        "\ue000": "private-use",
+        "\U00010000": "supplementary",
+        "\ud800": "isolated-surrogate",
+        "z": "last-ascii",
+        "a": "first-ascii",
+    }
+    document = dotproperties.dumps(mapping, sort_keys=True)
+    source = tmp_path / "sorted.properties"
+    source.write_text(document, encoding="ascii")
+
+    java_order = list(_load_with_java(java_reference, "load-bytes", source))
+    python_order = [_java_units(key) for key in dotproperties.loads(document)]
+
+    assert python_order == java_order
 
 
 @pytest.mark.interop

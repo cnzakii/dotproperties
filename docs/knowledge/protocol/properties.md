@@ -2,7 +2,7 @@
 title: Java Properties line-oriented format
 description: Normative grammar, encoding, escaping, storage, and JDK-version boundaries for java.util.Properties.
 topics: [java-properties, grammar, encoding, escaping, jdk8, jdk25]
-checked_at: 2026-07-30
+checked_at: 2026-07-31
 ---
 
 # Java Properties Line-Oriented Format
@@ -79,8 +79,15 @@ API: since Java 9 it attempts UTF-8 and may fall back to ISO-8859-1, whereas its
 
 Both Java 8 and Java 25 store `key=value`, escape all spaces in keys and the
 first leading space in a value, escape `#`, `!`, `=`, and `:`, flush the
-destination, and leave it open. Java's storage methods also write optional
-comments and a date comment.
+destination, and leave it open.
+
+When the Java `store` methods receive non-null comments, they first write `#`,
+the comment text, and a line separator. CR, LF, and CRLF inside the text become
+line separators. A continued comment line receives a leading `#` unless its
+next character is already `#` or `!`. Java then writes a separate date comment.
+The `Writer` overload can retain Unicode comments, while the `OutputStream`
+overload writes comments through ISO-8859-1 and escapes characters outside
+Latin-1.
 
 Java 8 does not specify entry order. Java 25 requires the natural ordering of
 keys for the normal `Properties.entrySet()` and documents the
@@ -98,7 +105,7 @@ a continuation and the next natural line begins with `#` or `!`, its
 [`LineReader` implementation][openjdk8-properties] treats that marker as
 property data. The Java 8 API contract still defines that natural line as a
 comment, while the pinned [OpenJDK 11 implementation][openjdk11-properties]
-ignores it. `dotproperties` follows the documented rule.
+ignores it.
 
 Long-term support is a vendor lifecycle designation, not part of the
 line-format specification. The [Adoptium support roadmap][temurin-support]

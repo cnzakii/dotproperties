@@ -107,6 +107,26 @@ with open("application.properties", "w", encoding="utf-8") as fp:
 Load that file through a Java `Reader` using the same encoding. Passing its
 UTF-8 bytes to `Properties.load(InputStream)` would apply ISO-8859-1 instead.
 
+## Serialization options
+
+Use `sort_keys=True` for deterministic output in Java's UTF-16 string order,
+including the ordering difference between supplementary and BMP characters.
+The default preserves the mapping's iteration order.
+
+Add caller-controlled header comments with `comments`:
+
+```python
+text = dotproperties.dumps(
+    config,
+    sort_keys=True,
+    comments="Application settings",
+)
+```
+
+Multiline comments follow Java's `#` and `!` line-marker rules. CR, LF, and
+CRLF are normalized to LF, and `ensure_ascii` applies to comment text as well
+as keys and values.
+
 `load()` makes bounded-size read requests. `load()` and `dump()` leave
 caller-owned streams open; `dump()` also leaves flushing to the caller and
 validates the complete mapping before its first write. A malformed `\uXXXX`
@@ -129,14 +149,10 @@ escape raises `ValueError`.
 - Duplicate keys use the last value, matching `Properties.load()`.
 
 Parsing does not preserve comments or original spelling. Serialization emits
-only `key=value` lines: it does not add Java's timestamp comment. Entries
-follow the mapping's iteration order. Java 8 does not specify the order used by
-`Properties.store()`, while Java 25 sorts ordinary `Properties` by key. The
-format itself has no semantic order, so sort the mapping before serialization
-only when a particular textual order is required.
-
-XML properties, defaults chains, interpolation, and lossless document editing
-are outside this package's scope.
+optional caller-supplied comments followed by `key=value` lines; it does not
+add Java's timestamp comment. Entries follow the mapping's iteration order
+unless `sort_keys=True`. Java 8 does not specify the order used by
+`Properties.store()`, while Java 25 sorts ordinary `Properties` by key.
 
 ## Safety and resource limits
 

@@ -10,6 +10,9 @@ from typing import TextIO
 # escape only a leading one. Unicode output still escapes isolated surrogates.
 _ASCII_ESCAPE = re.compile(r"[^ -~]|[\\=:#!]")
 _UNICODE_ESCAPE = re.compile(r"[\t\n\r\f\\=:#!\ud800-\udfff]")
+# Comment markers and line endings are handled before these Unicode-only scans.
+_ASCII_COMMENT_ESCAPE = re.compile(r"[^\x00-\x7f]")
+_UNICODE_COMMENT_ESCAPE = re.compile(r"[\ud800-\udfff]")
 _ESCAPES = {
     "\\": "\\\\",
     "\t": "\\t",
@@ -28,20 +31,31 @@ def dumps(
     /,
     *,
     ensure_ascii: bool = True,
+    sort_keys: bool = False,
+    comments: str | None = None,
 ) -> str:
     """Serialize a mapping as a Java Properties document.
 
     Args:
         mapping: String keys and values to serialize.
-        ensure_ascii: Escape non-ASCII characters with `\\uXXXX` sequences.
+        ensure_ascii: Escape non-ASCII characters throughout the document.
+        sort_keys: Sort entries by Java's UTF-16 string order.
+        comments: Optional header comment. CR and CRLF are normalized to LF.
 
     Returns:
         A text document with each property terminated by LF.
 
     Raises:
-        TypeError: If `mapping` is not a mapping of strings to strings.
+        TypeError: If `mapping` or `comments` has an invalid type.
     """
-    return "".join(_serialize_lines(mapping, ensure_ascii=ensure_ascii))
+    return "".join(
+        _serialize_lines(
+            mapping,
+            ensure_ascii=ensure_ascii,
+            sort_keys=sort_keys,
+            comments=comments,
+        )
+    )
 
 
 def dump(
@@ -50,6 +64,8 @@ def dump(
     /,
     *,
     ensure_ascii: bool = True,
+    sort_keys: bool = False,
+    comments: str | None = None,
 ) -> None:
     """Serialize a mapping to a text file-like object.
 
@@ -59,12 +75,19 @@ def dump(
     Args:
         mapping: String keys and values to serialize.
         fp: A text stream supporting `write(str)`.
-        ensure_ascii: Escape non-ASCII characters with `\\uXXXX` sequences.
+        ensure_ascii: Escape non-ASCII characters throughout the document.
+        sort_keys: Sort entries by Java's UTF-16 string order.
+        comments: Optional header comment. CR and CRLF are normalized to LF.
 
     Raises:
-        TypeError: If `mapping` is not a mapping of strings to strings.
+        TypeError: If `mapping` or `comments` has an invalid type.
     """
-    for line in _serialize_lines(mapping, ensure_ascii=ensure_ascii):
+    for line in _serialize_lines(
+        mapping,
+        ensure_ascii=ensure_ascii,
+        sort_keys=sort_keys,
+        comments=comments,
+    ):
         fp.write(line)
 
 
@@ -72,16 +95,29 @@ def _serialize_lines(
     mapping: Mapping[str, str],
     *,
     ensure_ascii: bool,
+    sort_keys: bool,
+    comments: str | None,
 ) -> Iterator[str]:
     """Validate, escape, and yield one complete property per line."""
-    pattern = _ASCII_ESCAPE if ensure_ascii else _UNICODE_ESCAPE
+    items = _items(mapping)
+    if comments is not None and not isinstance(comments, str):
+        raise TypeError("comments must be str or None")
+    if sort_keys:
+        items.sort(key=_java_sort_key)
 
-    for key, value in _items(mapping):
+    pattern = _ASCII_ESCAPE if ensure_ascii else _UNICODE_ESCAPE
+    if comments is not None:
+        comment_pattern = (
+            _ASCII_COMMENT_ESCAPE if ensure_ascii else _UNICODE_COMMENT_ESCAPE
+        )
+        yield from _serialize_comments(comments, pattern=comment_pattern)
+
+    for key, value in items:
         escaped_key = pattern.sub(_replace_escape, key).replace(" ", "\\ ")
         escaped_value = pattern.sub(_replace_escape, value)
         if escaped_value.startswith(" "):
             escaped_value = "\\" + escaped_value
-        yield escaped_key + "=" + escaped_value + "\n"
+        yield f"{escaped_key}={escaped_value}\n"
 
 
 def _items(mapping: Mapping[str, str]) -> list[tuple[str, str]]:
@@ -97,6 +133,19 @@ def _items(mapping: Mapping[str, str]) -> list[tuple[str, str]]:
             raise TypeError("property keys and values must be str")
 
     return items
+
+
+def _java_sort_key(item: tuple[str, str]) -> bytes:
+    """Return key bytes ordered like unsigned Java UTF-16 code units."""
+    return item[0].encode("utf-16-be", errors="surrogatepass")
+
+
+def _serialize_comments(comments: str, *, pattern: re.Pattern[str]) -> Iterator[str]:
+    """Yield Java-style comment lines normalized to LF."""
+    normalized = comments.replace("\r\n", "\n").replace("\r", "\n")
+    for index, line in enumerate(normalized.split("\n")):
+        prefix = "#" if index == 0 or not line.startswith(("#", "!")) else ""
+        yield f"{prefix}{pattern.sub(_replace_escape, line)}\n"
 
 
 def _replace_escape(match: re.Match[str]) -> str:
